@@ -1,0 +1,13 @@
+{
+    "name": "evb-value-grid",
+    "version": "1.0.0",
+    "description": "Dynamics 365 EVB Value Grid HTML Webresource",
+    "scripts": {
+        "build": "node build.js",
+        "typecheck": "tsc"
+    },
+    "devDependencies": {
+        "esbuild": "^0.20.0",
+        "typescript": "^5.3.0"
+    }
+}
