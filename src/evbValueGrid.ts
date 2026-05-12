@@ -53,7 +53,7 @@ export class EvbValueGrid {
                 const val = record?.value ?? null;
 
                 if (colIdx === 0) {
-                    const displayVal = val !== null ? String(val) : '';
+                    const displayVal = val !== null ? val.toFixed(2) : '';
                     return `<td class="col-current"><input
                         class="value-input"
                         data-year-after="${yearAfter}"
@@ -78,20 +78,20 @@ export class EvbValueGrid {
         }).join('');
 
         return `
-<div class="toolbar">
-    <button id="btnSave" class="btn-primary" disabled>Speichern</button>
-    <span id="saveStatus" class="status-text"></span>
-</div>
 <div class="table-wrapper">
     <table>
         <thead>
             <tr>
-                <th class="col-label-header">Jahr nach</th>
+                <th class="col-label-header">Jahr nach Bezug</th>
                 ${headerCells}
             </tr>
         </thead>
         <tbody>${bodyRows}</tbody>
     </table>
+</div>
+<div class="footer">
+    <span id="saveStatus" class="status-text"></span>
+    <button id="btnSave" class="btn-primary" disabled>Speichern</button>
 </div>`;
     }
 
@@ -99,6 +99,33 @@ export class EvbValueGrid {
         this.container.querySelectorAll<HTMLInputElement>('.value-input').forEach(input => {
             const yearAfter = Number(input.dataset.yearAfter);
             const originalValue = this.columns[0].valueMap.get(yearAfter)?.value ?? null;
+
+            input.addEventListener('blur', async () => {
+                const parsed = Number(input.value);
+                if (input.value !== '' && !isNaN(parsed)) {
+                    input.value = parsed.toFixed(2);
+                }
+
+                if (!this.pendingChanges.has(yearAfter)) return;
+
+                const newValue = this.pendingChanges.get(yearAfter)!;
+                try {
+                    const existing = this.columns[0].valueMap.get(yearAfter)
+                        ?? { id: null, yearAfter, value: null };
+                    const savedId = await this.api.saveEvbValue(this.currentErvoId, existing, newValue);
+                    this.columns[0].valueMap.set(yearAfter, { id: savedId, yearAfter, value: newValue });
+                    this.pendingChanges.delete(yearAfter);
+
+                    input.classList.remove('dirty');
+                    input.classList.add('save-success');
+                    input.addEventListener('animationend', () => input.classList.remove('save-success'), { once: true });
+
+                    const saveBtn = document.getElementById('btnSave') as HTMLButtonElement;
+                    if (saveBtn) saveBtn.disabled = this.pendingChanges.size === 0;
+                } catch (err) {
+                    console.error('Auto-save failed:', err);
+                }
+            });
 
             input.addEventListener('input', () => {
                 const raw = input.value.trim();
